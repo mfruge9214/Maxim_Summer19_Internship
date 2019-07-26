@@ -1,0 +1,16 @@
+Software Requirements
+--------------------------
+
+- Functional Requirements
+	- The program shall allow the user to issue One Wire commands to a bus containing One Wire devices from a MAX32630FTHR One Wire Master and interact with those devices via the aformentioned commands
+
+- Interface Requirements
+	- The system shall contain a GUI, application firmware loaded onto a MAX32630FTHR, and at least 1 One Wire Device. Futhermore, the user will need a MAX32630PICO to load the firmware onto the board.
+	- The GUI and the firmware shall communicate using Serial communication protocol
+	- The program shall allow users to easily conduct any One Wire operation on any One Wire device
+	- The program shall gracefully recover from errors and alert the user when incorrect behavior is detected
+	
+- User Interface Requirements
+	- The User Interface shall be Maxim Look and Feel compliant
+	- The User Interface shall be easy to use, so the user can follow along with a device datasheet and obtain correct results
+	- Documentation shall be provided for the user via README.txt file that explains how to use the software

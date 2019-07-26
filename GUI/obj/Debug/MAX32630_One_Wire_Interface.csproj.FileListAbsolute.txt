@@ -1,0 +1,14 @@
+C:\Users\Michael.Fruge\Documents\SVNworkspace\SVN_1_Wire_Interface\GUI\bin\Debug\MAX32630_One_Wire_Interface.exe.config
+C:\Users\Michael.Fruge\Documents\SVNworkspace\SVN_1_Wire_Interface\GUI\bin\Debug\MAX32630_One_Wire_Interface.exe
+C:\Users\Michael.Fruge\Documents\SVNworkspace\SVN_1_Wire_Interface\GUI\bin\Debug\MAX32630_One_Wire_Interface.pdb
+C:\Users\Michael.Fruge\Documents\SVNworkspace\SVN_1_Wire_Interface\GUI\bin\Debug\MaximStyle.dll
+C:\Users\Michael.Fruge\Documents\SVNworkspace\SVN_1_Wire_Interface\GUI\obj\Debug\MAX32630_One_Wire_Interface.csprojAssemblyReference.cache
+C:\Users\Michael.Fruge\Documents\SVNworkspace\SVN_1_Wire_Interface\GUI\obj\Debug\MAX32630_One_Wire_Interface.Mainform.resources
+C:\Users\Michael.Fruge\Documents\SVNworkspace\SVN_1_Wire_Interface\GUI\obj\Debug\MAX32630_One_Wire_Interface.MaximSplashScreenForm.resources
+C:\Users\Michael.Fruge\Documents\SVNworkspace\SVN_1_Wire_Interface\GUI\obj\Debug\MAX32630_One_Wire_Interface.Properties.Resources.resources
+C:\Users\Michael.Fruge\Documents\SVNworkspace\SVN_1_Wire_Interface\GUI\obj\Debug\MAX32630_One_Wire_Interface.SerialUSBForm.resources
+C:\Users\Michael.Fruge\Documents\SVNworkspace\SVN_1_Wire_Interface\GUI\obj\Debug\MAX32630_One_Wire_Interface.csproj.GenerateResource.cache
+C:\Users\Michael.Fruge\Documents\SVNworkspace\SVN_1_Wire_Interface\GUI\obj\Debug\MAX32630_One_Wire_Interface.csproj.CoreCompileInputs.cache
+C:\Users\Michael.Fruge\Documents\SVNworkspace\SVN_1_Wire_Interface\GUI\obj\Debug\MAX32630_One_Wire_Interface.csproj.CopyComplete
+C:\Users\Michael.Fruge\Documents\SVNworkspace\SVN_1_Wire_Interface\GUI\obj\Debug\MAX32630_One_Wire_Interface.exe
+C:\Users\Michael.Fruge\Documents\SVNworkspace\SVN_1_Wire_Interface\GUI\obj\Debug\MAX32630_One_Wire_Interface.pdb
