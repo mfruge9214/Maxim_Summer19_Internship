@@ -141,7 +141,7 @@ uint32_t getValue(uint8_t *array, int firstIdx, int lastIdx, uint8_t handle){
     else if(handle == 0x32){
         for(i=firstIdx; i<=lastIdx; i++){
             byte = array[i];
-            value += (byte<<(8*i-1));
+            value += (byte<<(8*(i-1)));
         }
     }
     return value;
@@ -174,59 +174,3 @@ OneWireMaster::CmdResult writeScratchpad(MCU_OWM & owm, uint8_t *array, RomId ro
     }
     return result;
 }
-
-//float ReadTempScratchpad(MCU_OWM & owm)
-//{
-//    int i;
-//    int len = 2;
-//    uint8_t retArray [len];
-//    uint8_t num;
-//    float Temp = 0;
-//    float holder = 0;
-//    RomId romId;
-//    OneWireMaster::CmdResult result = OneWireMaster::OperationFailure;
-//
-//    /* Get Rom Id */
-//    for(i=0; i<ROM_ID_LEN; i++){
-//        romId.buffer[i] = Temp_Rom_ID[(ROM_ID_LEN - 1) - i];
-//    }
-//
-//    /* Search bus for RomId */
-//    result = RomCommands::OWMatchRom(owm, romId);
-//    if(result != OneWireMaster::Success){
-//        printf("Match ROM Failed\r\n");
-//        return result;
-//    }
-//
-//    /* Issue the read Scratchpad Command */
-//    result = owm.OWWriteByte(OW_READ_SCRATCHPAD_CMD);
-//    if(result != OneWireMaster::Success){
-//        printf("Issuing Read Scratchpad; Command Failed\r\n");
-//        return result;
-//    }
-//
-//    /* Read the data from the bus into an array */
-//    for(i=0; i<len; i++){
-//        result = owm.OWReadByte(retArray[i]);
-//        if(result != OneWireMaster::Success){
-//            printf("Read Bus Failed\r\n");
-//            return result;
-//        }
-//    }
-//
-//    for(i=len-1; i>=0; i--){
-//        num = retArray[i];
-//        if(i==1 && num > 7){    // It is a negative number
-//            /* Implement later */
-//        }
-//        else if(i==1 && num <=7){   // Its a positive number
-//            holder = num * 16;
-//        }
-//        else if(i==0){
-//            holder = retArray[i];
-//            holder = holder/16;
-//        }
-//        Temp += holder;
-//    }
-//    return Temp;
-//}

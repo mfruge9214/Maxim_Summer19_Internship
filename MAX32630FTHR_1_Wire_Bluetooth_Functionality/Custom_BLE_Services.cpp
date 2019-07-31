@@ -1,18 +1,36 @@
 #include <events/mbed_events.h>
 #include <mbed.h>
 #include <math.h>
+#include "stdlib.h"
+//#include "time.h"
 #include "ble/BLE.h"
 //#include "ble/Gap.h"
+#include "USBSerial.h"
 #include "OnewireBT.h"
+#include "string"
+#include "sstream"
 //#include "Custom_Service.h"
+
+
+#define TEMP_OUTPUT_FLAG    0x01
+#define HIA_OUTPUT_FLAG     0x02
+#define LOA_OUTPUT_FLAG     0x04
+#define ALARMING_FLAG       0x08
+#define CLK_OUTPUT_FLAG     0x10
+
+#define BUFSIZE             70
 
 
 
 /* Globals */
 
+/* Serial Port */
+
+USBSerial microUSB;
 /* Service UUID's */
 uint16_t TempServiceUUID = 0xDEAD;
 uint16_t TimeServiceUUID = 0xBEEF;
+uint16_t OutputUUID = 0xDEAF;
 
 /* Characteristic UUID's */
 uint16_t readTempUUID = 0x1600;
@@ -22,9 +40,11 @@ uint16_t getAlarmingStateUUID = 0x1603;
 
 uint16_t readCurrTimeUUID = 0x1634;
 
+uint16_t outStringUUID = 0x1678;
+
 /* Device name and profile UUID */
-const static char     DEVICE_NAME[] = "MyProfile";
-static const uint16_t uuid16_list[] = {TempServiceUUID, TimeServiceUUID};
+const static char     DEVICE_NAME[] = "FTHR_BT_Demo";
+static const uint16_t uuid16_list[] = {TempServiceUUID, TimeServiceUUID, OutputUUID};
 
 
 /* Temperature Characteristics and Service */
@@ -43,8 +63,7 @@ ReadOnlyGattCharacteristic<bool> currAlarmState(getAlarmingStateUUID, &Alarming)
 GattCharacteristic *chars[] = {&getTemp, &accessHiAlarm, &accessLowAlarm, &currAlarmState};
 static GattService TempService(TempServiceUUID, chars, 4);
 
-/* Array for Scratchpad Data */
-uint8_t ScratchData[9];
+
 
 /* Clock Service */
 static uint32_t ClockVal = 0;
@@ -53,8 +72,23 @@ ReadOnlyGattCharacteristic<uint32_t> getCurrTime(readCurrTimeUUID, &ClockVal);
 GattCharacteristic *timeChars[] = {&getCurrTime};
 static GattService TimeService(TimeServiceUUID, timeChars, 1);
 
+
+
+/* Output Service */
+static char Output[BUFSIZE] = {0};
+ReadOnlyArrayGattCharacteristic<char, BUFSIZE> showOutput(outStringUUID, Output);
+
+GattCharacteristic *outChars[] = {&showOutput};
+static GattService OutputService(OutputUUID, outChars, 1);
+
 /* Data written flags */
 uint8_t WriteData = 0;
+
+/* Array for Scratchpad Data */
+uint8_t ScratchData[9];
+
+uint8_t output_flag = 0;
+
 
 bool showConnectMessage = true;
 
@@ -71,23 +105,21 @@ MCU_OWM owm(false, true);
 
 /* Functions */
 
+template <typename T> string toString(const T& t) {
+   std::ostringstream os;
+   os<<t;
+   return os.str();
+}
+
 void disconnectionCallback(const Gap::DisconnectionCallbackParams_t *params)
 {
     BLE::Instance().gap().startAdvertising(); // restart advertising
-    printf("Disconnected\r\n");
+    microUSB.printf("Disconnected\r\n");
     showConnectMessage = true;
 }
 
 void updateTemp(){
-//    currTemp = currTemp + 1;
-//
-//    if(currTemp >100){
-//        printf("Oh Jeez Rick, it's really hot in here!\r\n");
-//        currTemp = 0;
-//    }
 
-//    envServicePtr->updateTemperature(gTemp);
-//    printf("%f\r\n", gTemp);
 }
 
 void periodicCallback(void)
@@ -96,7 +128,7 @@ void periodicCallback(void)
 
     if (BLE::Instance().getGapState().connected && showConnectMessage) {
         //eventQueue.call(updateTemp);
-        printf("Connected... waiting for action\r\n");
+        microUSB.printf("Connected... waiting for action\r\n");
         showConnectMessage = false;
     }
 }
@@ -114,27 +146,34 @@ void printMacAddress()
     Gap::AddressType_t addr_type;
     Gap::Address_t address;
     BLE::Instance().gap().getAddress(&addr_type, address);
-    printf("DEVICE MAC ADDRESS: ");
+    microUSB.printf("DEVICE MAC ADDRESS: ");
     for (int i = 5; i >= 1; i--){
-        printf("%02x:", address[i]);
+        microUSB.printf("%02x:", address[i]);
     }
-    printf("%02x\r\n", address[0]);
+    microUSB.printf("%02x\r\n", address[0]);
 }
 
 void connectCallback(Gap::ConnectionEventCallback_t params)
 {
-    printf("You are now connected\r\n");
+    microUSB.printf("You are now connected\r\n");
 }
 
 /* Called anytime a characteristic is accessed */
 void DataReceivedEvent(const GattReadCallbackParams *eventDataP){
+    char charptr[10];
     uint8_t attribute = eventDataP->handle;
-    printf("Data Received\r\n");
+    microUSB.printf("Data Received\r\n");
     float Temp = 0;
-    uint8_t alarmVal;
     OneWireMaster::CmdResult result;
     RomId romId;
     RomCommands::SearchState ss;
+    string holder;
+    int i=0;
+    int days, hours, minutes, seconds, temptime;
+    string days_s, hours_s, minutes_s, seconds_s;
+
+//    Output = charptr;
+    memset(Output, 0, BUFSIZE);
 
     switch(attribute){
         /* Get and read temp */
@@ -142,20 +181,18 @@ void DataReceivedEvent(const GattReadCallbackParams *eventDataP){
             romId.buffer = Temp_Rom_ID;
             result = ConvertT(owm, 12);
             if(result != OneWireMaster::Success){
-                printf("Temp Conversion Failed\r\n");
+                microUSB.printf("Temp Conversion Failed\r\n");
                 return;
             }
             result = ReadDeviceData(owm, ScratchData, romId);
-            int i=0;
-            printf("Read From ScratchPad: 0x");
+            microUSB.printf("Read From ScratchPad: 0x");
             for(i=0; i<8; i++){
-                printf(" %02X", ScratchData[i]);
+                microUSB.printf(" %02X", ScratchData[i]);
             }
-            printf("\r\n");
+            microUSB.printf("\r\n");
             readTemp = (uint16_t) getValue(ScratchData, 0, 1, attribute);
-            printf("temp in hex is 0x%04X\r\n", readTemp);
-            Temp = ((float)readTemp)/16;
-            printf("The Temperature is %f degrees C\r\n", Temp);
+            microUSB.printf("temp in hex is 0x%04X\r\n", readTemp);
+            output_flag = TEMP_OUTPUT_FLAG;
             break;
 
         /* Read Th */
@@ -163,11 +200,12 @@ void DataReceivedEvent(const GattReadCallbackParams *eventDataP){
             romId.buffer = Temp_Rom_ID;
             result = ReadDeviceData(owm, ScratchData, romId);
             if(result != OneWireMaster::Success){
-                printf("Reading DS18B20 Scratchpad Failed\r\n");
+                microUSB.printf("Reading DS18B20 Scratchpad Failed\r\n");
                 return;
             }
             HiAlarm = (uint8_t) getValue(ScratchData, 2, 2, attribute);
-            printf("The High Alarm is set at %d degrees C\r\n", HiAlarm);
+            output_flag = HIA_OUTPUT_FLAG;
+            microUSB.printf("The High Alarm is set at %d degrees C\r\n", HiAlarm);
             break;
 
         /* Read Tl */
@@ -175,11 +213,12 @@ void DataReceivedEvent(const GattReadCallbackParams *eventDataP){
             romId.buffer = Temp_Rom_ID;
             result = ReadDeviceData(owm, ScratchData, romId);
             if(result != OneWireMaster::Success){
-                printf("Reading DS18B20 Scratchpad Failed\r\n");
+                microUSB.printf("Reading DS18B20 Scratchpad Failed\r\n");
                 return;
             }
             LowAlarm = (uint8_t) getValue(ScratchData, 3, 3, attribute);
-            printf("The Low Alarm is set at %d degrees C\r\n", LowAlarm);
+            output_flag = LOA_OUTPUT_FLAG;
+            microUSB.printf("The Low Alarm is set at %d degrees C\r\n", LowAlarm);
             break;
 
         /*Get Alarming State */
@@ -187,47 +226,110 @@ void DataReceivedEvent(const GattReadCallbackParams *eventDataP){
             result = OWAlarmSearch(owm,ss);
             if(result == OneWireMaster::Success){
                 Alarming = true;
-                printf("There is an Alarm on the bus\r\n");
+                microUSB.printf("There is an Alarm on the bus\r\n");
+
             }
             else{
                 Alarming = false;
-                printf("No alarm condition detected\r\n");
+                microUSB.printf("No alarm condition detected\r\n");
             }
+            strcpy(Output, holder.c_str());
+            output_flag = ALARMING_FLAG;
             break;
 
         /* Get Time */
         case 0x32:
             romId.buffer = Clock_Rom_ID;
             result = ReadDeviceData(owm, ScratchData, romId);
+
+            microUSB.printf("Read From ScratchPad: 0x");
+            for(i=0; i<8; i++){
+                microUSB.printf(" %02X", ScratchData[i]);
+            }
+            microUSB.printf("\r\n");
+
             if(result != OneWireMaster::Success){
-                printf("Reading DS1904 Scratchpad Failed\r\n");
+                microUSB.printf("Reading DS1904 Scratchpad Failed\r\n");
                 return;
             }
             ClockVal = getValue(ScratchData, 1, 5, attribute);
-            printf("The Clock has a value of 0x%04X\r\n", ClockVal);
+            microUSB.printf("Time from the Scratchpad: %d\r\n", ClockVal);
+//            ClockVal = ClockVal/128;
+            output_flag = CLK_OUTPUT_FLAG;
+            break;
+
+        case 0x42:
+            switch(output_flag){
+                case TEMP_OUTPUT_FLAG:
+                    Temp = ((float)readTemp)/16;
+                    microUSB.printf("The Temperature is %f degrees C\r\n", Temp);
+                    holder = toString(Temp);
+                    holder = "It is " + holder + " degrees C";
+                    strcpy(Output, holder.c_str());
+                    break;
+
+                case HIA_OUTPUT_FLAG:
+                    holder = toString((float) HiAlarm);
+                    holder = "High alarm set to " + holder + " degrees C";
+                    strcpy(Output, holder.c_str());
+                    break;
+
+                case LOA_OUTPUT_FLAG:
+                    holder = toString( (float) LowAlarm);
+                    holder = "Low Alarm set to " + holder + " degrees C";
+                    strcpy(Output, holder.c_str());
+                    break;
+
+                case ALARMING_FLAG:
+                    if(Alarming){
+                        holder = "There is an active alarm on the bus";
+                    }
+                    else{
+                        holder = "No active alarm detected";
+                    }
+                    strcpy(Output, holder.c_str());
+                    break;
+
+                case CLK_OUTPUT_FLAG:
+                    temptime = ClockVal;
+                    days = temptime/86400;
+                    days_s = toString(days);
+                    temptime = temptime % 86400;
+                    hours = temptime / 3600;
+                    hours_s = toString(hours);
+                    temptime = temptime % 3600;
+                    minutes = temptime / 60 ;
+                    minutes_s = toString(minutes);
+                    temptime = temptime % 60;
+                    seconds = temptime;
+                    seconds_s = toString(seconds);
+                    holder = days_s + " days, " + hours_s + " hours, " +  minutes_s + " minutes, and " + seconds_s + " seconds since Jan 1, 1970";
+                    strcpy(Output, holder.c_str());
+                    break;
+            }
+            //microUSB.printf("The output string is: %s\r\n", Output);
             break;
         default:
-            printf("Data Received Error: Attribute val= 0x%02X\r\n", attribute);
+            microUSB.printf("Data Received Error: Attribute val= 0x%02X\r\n", attribute);
             break;
     }
-    printf("--------------------------------------------\r\n");
+    microUSB.printf("--------------------------------------------\r\n");
 }
 
 void DataWrittenEvent(const GattWriteCallbackParams *eventDataP){
-    printf("Data Written Event\r\n");
+    microUSB.printf("Data Written Event\r\n");
     uint8_t attribute = eventDataP->handle;
     RomId romId;
     romId.buffer = Temp_Rom_ID;
     uint8_t toEnter[3];
     OneWireMaster::CmdResult result;
     int changeIdx;
-    uint8_t dataWritten;
     int i;
 
     /* Get Scratchpad data */
     result = ReadDeviceData(owm, ScratchData, romId);
     if(result != OneWireMaster::Success){
-        printf("Reading DS18B20 Scratchpad Failed\r\n");
+        microUSB.printf("Reading DS18B20 Scratchpad Failed\r\n");
         return;
     }
 
@@ -248,7 +350,7 @@ void DataWrittenEvent(const GattWriteCallbackParams *eventDataP){
         case 0x28:
             changeIdx = 2;
         default:
-            printf("Whatever just happened shouldn't have happened\r\n");
+            microUSB.printf("Whatever just happened shouldn't have happened\r\n");
             break;
         }
 
@@ -256,15 +358,15 @@ void DataWrittenEvent(const GattWriteCallbackParams *eventDataP){
     result = writeScratchpad(owm, toEnter, romId);
     switch(changeIdx){
         case 0:
-            printf("High Alarm set to %d degrees C\r\n", eventDataP->data[0]);
+            microUSB.printf("High Alarm set to %d degrees C\r\n", eventDataP->data[0]);
             break;
         case 1:
-            printf("Low Alarm set to %d degrees C\r\n", eventDataP->data[0]);
+            microUSB.printf("Low Alarm set to %d degrees C\r\n", eventDataP->data[0]);
             break;
         case 2:
             break;
     }
-    printf("--------------------------------------------\r\n");
+    microUSB.printf("--------------------------------------------\r\n");
 }
 
 
@@ -283,26 +385,22 @@ void bleInitComplete(BLE::InitializationCompleteCallbackContext *params)
         return;
     }
 
+    /*Set up behavior for GATT */
+
     ble.gap().onDisconnection(disconnectionCallback);
     ble.gattServer().onDataRead(DataReceivedEvent);
     ble.gattServer().onDataWritten(DataWrittenEvent);
 
-//    /* Setup primary service. */
-//    envServicePtr = new EnvironmentalService(ble);
-//
-//    envServicePtr->updateHumidity( (EnvironmentalService::HumidityType_t) 50);
-//    envServicePtr->updatePressure( (EnvironmentalService::PressureType_t) 1);
-
     /* Setup advertising. */
     ble.gap().accumulateAdvertisingPayload(GapAdvertisingData::BREDR_NOT_SUPPORTED | GapAdvertisingData::LE_GENERAL_DISCOVERABLE);
     ble.gap().accumulateAdvertisingPayload(GapAdvertisingData::COMPLETE_LIST_16BIT_SERVICE_IDS, (uint8_t *)uuid16_list, sizeof(uuid16_list));
-//    ble.gap().accumulateAdvertisingPayload(GapAdvertisingData::GENERIC_THERMOMETER);
     ble.gap().accumulateAdvertisingPayload(GapAdvertisingData::COMPLETE_LOCAL_NAME, (uint8_t *)DEVICE_NAME, sizeof(DEVICE_NAME));
     ble.gap().setAdvertisingType(GapAdvertisingParams::ADV_CONNECTABLE_UNDIRECTED);
     ble.gap().setAdvertisingInterval(1000); /* ms */
 
     ble.addService(TempService);
     ble.addService(TimeService);
+    ble.addService(OutputService);
     ble.gap().startAdvertising();
 
     printMacAddress();
@@ -324,8 +422,6 @@ int main()
     feather.init(MAX32630FTHR::VIO_3V3);
 
     /* Initialize OWM and other OWM related variables */
-//    OneWire::MCU_OWM owm;
-    //owm(false, true);
     OWM_Initialize(owm);
 
     BLE &ble = BLE::Instance();
